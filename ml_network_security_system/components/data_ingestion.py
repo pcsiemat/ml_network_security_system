@@ -53,13 +53,22 @@ class DataIngestion:
         
     def split_data_as_train_test(self,dataframe: pd.DataFrame):
         try:
-            train_set, test_set = train_test_split(
-                dataframe, test_size=self.data_ingestion_config.train_test_split_ratio
-            )
-            logging.info("Performed train test split on the dataframe")
 
+            target_column = self.data_ingestion_config.target_column
+
+            # Stratified split: train and test keep the same class proportions
+            train_set, test_set = train_test_split(
+                dataframe,
+                test_size=self.data_ingestion_config.train_test_split_ratio,
+                stratify=dataframe[target_column],
+                random_state=self.data_ingestion_config.random_state,
+            )
             logging.info(
-                "Exited split_data_as_train_test method of Data_Ingestion class"
+                f"Performed train test split. Train: {train_set.shape}, Test: {test_set.shape}"
+            )
+            logging.info(
+                f"Class balance - train: {train_set[target_column].value_counts(normalize=True).round(3).to_dict()}, "
+                f"test: {test_set[target_column].value_counts(normalize=True).round(3).to_dict()}"
             )
             
             dir_path = os.path.dirname(self.data_ingestion_config.training_file_path)
@@ -78,6 +87,9 @@ class DataIngestion:
             logging.info(f"Exported train and test file path.")
 
             
+            logging.info(
+                "Exited split_data_as_train_test method of Data_Ingestion class"
+            )
         except Exception as e:
             raise AppException(e,sys)
         

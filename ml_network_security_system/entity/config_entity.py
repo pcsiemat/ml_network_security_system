@@ -92,7 +92,13 @@ class DataIngestionConfig:
         )
 
         # Fraction of data used for testing (e.g. 0.2 = 20% test, 80% train)
-        self.train_test_split_ratio: float = training_pipeline.DATA_INGESTION_TRAIN_TEST_SPLIT_RATION
+        self.train_test_split_ratio: float = training_pipeline.DATA_INGESTION_TRAIN_TEST_SPLIT_RATIO
+
+        # Ramdom state for replicate
+        self.random_state : int= training_pipeline.DATA_INGESTION_RANDOM_STATE
+
+        # Target column used to stratify the train/test split
+        self.target_column: str = training_pipeline.TARGET_COLUMN
 
         # MongoDB collection to read the data from
         self.collection_name: str = training_pipeline.DATA_INGESTION_COLLECTION_NAME
