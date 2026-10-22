@@ -12,6 +12,7 @@ dependencies = [
     "pymongo",
     "certifi",
     "scikit-learn",
+    "pyaml",
 ]
 
 [dependency-groups]
