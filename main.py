@@ -57,11 +57,13 @@ import sys
 from ml_network_security_system.components.data_ingestion import DataIngestion
 from ml_network_security_system.components.data_validation import DataValidation
 from ml_network_security_system.components.data_transformation import DataTransformation
+from ml_network_security_system.components.model_trainer  import ModelTrainer
 from ml_network_security_system.entity.config_entity import (
     TrainingPipelineConfig,
     DataIngestionConfig,
     DataValidationConfig,
     DataTransformationConfig,
+    ModelTrainerConfig
 )
 from ml_network_security_system.exception.exception import AppException
 from ml_network_security_system.logger.log import logging
@@ -108,6 +110,19 @@ def run_pipeline():
     print("✔ Data transformation completed")
     print(f"  Train array: {data_transformation_artifact.transformed_train_file_path}")
     print(f"  Test array:  {data_transformation_artifact.transformed_test_file_path}")
+
+
+    # ── Stage 4: Model training ──
+    logging.info("Initiate the model training")
+    model_trainer_config=ModelTrainerConfig(training_pipeline_config)
+    model_trainer=ModelTrainer(model_trainer_config=model_trainer_config,data_transformation_artifact=data_transformation_artifact)
+    model_trainer_artifact=model_trainer.initiate_model_trainer()
+
+    logging.info("Model training completed")
+    print("✔ Model training completed")
+    print(f"  Train array: {data_transformation_artifact.transformed_train_file_path}")
+    print(f"  Test array:  {data_transformation_artifact.transformed_test_file_path}")
+
 
     return True
 

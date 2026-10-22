@@ -6,6 +6,11 @@ import numpy as np
 #import dill
 import pickle
 
+#from sklearn.metrics import r2_score
+from sklearn.metrics import f1_score
+from sklearn.model_selection import GridSearchCV
+
+
 def read_yaml_file(file_path: str) -> dict:
     try:
         with open(file_path, "rb") as yaml_file:
@@ -49,3 +54,97 @@ def save_object(file_path: str, obj: object) -> None:
         logging.info("Exited the save_object method of MainUtils class")
     except Exception as e:
         raise AppException(e, sys) from e
+
+def load_object(file_path: str, ) -> object:
+    try:
+        if not os.path.exists(file_path):
+            raise Exception(f"The file: {file_path} is not exists")
+        with open(file_path, "rb") as file_obj:
+            #print(file_obj)
+            return pickle.load(file_obj)
+    except Exception as e:
+        raise AppException(e, sys) from e
+    
+def load_numpy_array_data(file_path: str) -> np.array:
+    """
+    load numpy array data from file
+    file_path: str location of file to load
+    return: np.array data loaded
+    """
+    try:
+        with open(file_path, "rb") as file_obj:
+            return np.load(file_obj)
+    except Exception as e:
+        raise AppException(e, sys) from e
+    
+
+
+# def evaluate_models(X_train, y_train,X_test,y_test,models,param):
+#     try:
+#         report = {}
+
+#         for i in range(len(list(models))):
+#             model = list(models.values())[i]
+#             para=param[list(models.keys())[i]]
+
+#             gs = GridSearchCV(model,para,cv=3)
+#             gs.fit(X_train,y_train)
+
+#             model.set_params(**gs.best_params_)
+#             model.fit(X_train,y_train)
+
+#             #model.fit(X_train, y_train)  # Train model
+
+#             y_train_pred = model.predict(X_train)
+
+#             y_test_pred = model.predict(X_test)
+
+#             train_model_score = r2_score(y_train, y_train_pred)
+
+#             test_model_score = r2_score(y_test, y_test_pred)
+
+#             report[list(models.keys())[i]] = test_model_score
+
+#         return report
+
+#     except Exception as e:
+#         raise AppException(e, sys)
+
+
+def evaluate_models(X_train, y_train, X_test, y_test, models, param, cv=5):
+    """
+    For each model: tune with GridSearchCV (scoring = f1, phishing = 1),
+    then retrain with the best params on the full train set.
+    Returns {model_name: {cv_f1_mean, cv_f1_std, train_f1, test_f1}}.
+      cv_f1_mean → used to CHOOSE the model (train data only)
+      cv_f1_std  → stability across folds
+      train_f1 vs test_f1 → overfitting check
+    """
+    try:
+        report = {}
+
+        for model_name, model in models.items():
+            gs = GridSearchCV(model, param[model_name], cv=cv, scoring="f1")
+            gs.fit(X_train, y_train)
+
+            cv_mean = gs.best_score_
+            cv_std  = gs.cv_results_["std_test_score"][gs.best_index_]
+
+            model.set_params(**gs.best_params_)
+            model.fit(X_train, y_train)
+
+            train_f1 = f1_score(y_train, model.predict(X_train))
+            test_f1  = f1_score(y_test,  model.predict(X_test))
+
+            report[model_name] = {
+                "cv_f1_mean": round(float(cv_mean), 4),
+                "cv_f1_std":  round(float(cv_std), 4),
+                "train_f1":   round(float(train_f1), 4),
+                "test_f1":    round(float(test_f1), 4),
+            }
+            logging.info(f"{model_name}: {report[model_name]} | best params: {gs.best_params_}")
+
+        return report
+
+    except Exception as e:
+        raise AppException(e, sys)
