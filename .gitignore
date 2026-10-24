@@ -10,6 +10,7 @@ logs/
 final_model/
 prediction_output/
 template.py
+mlflow.db
 
 # C extensions
 *.so

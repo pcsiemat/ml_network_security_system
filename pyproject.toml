@@ -13,6 +13,7 @@ dependencies = [
     "certifi",
     "scikit-learn",
     "pyaml",
+    "mlflow",
 ]
 
 [dependency-groups]

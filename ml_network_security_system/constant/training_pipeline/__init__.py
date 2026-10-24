@@ -76,3 +76,13 @@ MODEL_TRAINER_TRAINED_MODEL_DIR: str = "trained_model"
 #MODEL_TRAINER_TRAINED_MODEL_NAME: str = "model.pkl"
 MODEL_TRAINER_EXPECTED_SCORE: float = 0.6
 MODEL_TRAINER_OVER_FITTING_UNDER_FITTING_THRESHOLD: float = 0.05
+MODEL_TRAINER_CV_STD_WARNING = 0.02
+
+
+
+"""
+MLflow related constants
+"""
+MLFLOW_DEFAULT_SERVER: str  = "http://127.0.0.1:5000"
+MLFLOW_OFFLINE_URI: str     = "sqlite:///mlflow_offline.db"   # separate DB, never clashes with the server's
+MLFLOW_EXPERIMENT_NAME: str = "ml_network_security_system"

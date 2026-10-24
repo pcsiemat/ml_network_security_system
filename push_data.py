@@ -10,7 +10,7 @@ from dotenv import load_dotenv  # Loads key=value pairs from a .env file
 load_dotenv()                   # Read the .env file and add its values to the environment
 
 MONGO_DB_URL = os.getenv("MONGO_DB_URL")  # Get the MongoDB connection string (None if not set)
-print(f"MONGO_DB_URL: {MONGO_DB_URL}")    # Print the URL to confirm it loaded (debug only)
+#print(f"MONGO_DB_URL: {MONGO_DB_URL}")    # Print the URL to confirm it loaded (debug only)
 
 import certifi       # Provides an up-to-date bundle of trusted CA certificates
 ca = certifi.where() # Path to that CA bundle, used for secure TLS connections to MongoDB (e.g., Atlas)
@@ -79,7 +79,8 @@ class NetworkDataExtract():
 
 
 if __name__=='__main__':
-    FILE_PATH = "Network_Data\phisingData.csv"
+    FILE_PATH = os.path.join("Network_Data", "phisingData.csv")
+    #FILE_PATH = "Network_Data\phisingData.csv"
     DATABASE = "Cmatos_DB"
     Collection = "Network_Data_Collection"
     networkobj = NetworkDataExtract()
