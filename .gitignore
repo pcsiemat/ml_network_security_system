@@ -11,6 +11,9 @@ final_model/
 prediction_output/
 template.py
 mlflow.db
+mlflow_offline.db
+mlruns/
+
 
 # C extensions
 *.so
