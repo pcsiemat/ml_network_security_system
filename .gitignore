@@ -13,6 +13,7 @@ template.py
 mlflow.db
 mlflow_offline.db
 mlruns/
+check_model.py
 
 
 # C extensions
