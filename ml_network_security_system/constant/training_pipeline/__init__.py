@@ -20,7 +20,7 @@ MODEL_FILE_NAME      = "model.pkl"
 FINAL_MODEL_OBJECT_DIR: str = "final_model" #Objects for production : model + preprocessing
 METRICS_FILE_NAME: str = "metrics.yaml" 
 
-TEMPLATE_DIR:str       = "Templates"
+TEMPLATE_DIR:str       = "templates"
 PREDICTION_OUTPUT_DIR: str = "prediction_output"
 
 
