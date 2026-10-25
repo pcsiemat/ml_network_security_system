@@ -109,3 +109,5 @@ AWS
 TRAINING_BUCKET_NAME: str = "ml-network-security-s3-dev"
 TRAINING_SUB_FOLDER_ARTIFACT_NAME: str = "artifacts"
 TRAINING_SUB_FOLDER_FINAL_MODEL_NAME: str = "final_model"
+
+ECR_REPOSITORY_NAME = "ml-network-security-ecr-dev/api"
