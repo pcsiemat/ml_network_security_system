@@ -134,7 +134,7 @@ class DataTransformationConfig:
             training_pipeline.TEST_FILE_NAME.replace("csv", "npy"), )
         self.transformed_object_file_path: str = os.path.join( self.data_transformation_dir, training_pipeline.DATA_TRANSFORMATION_TRANSFORMED_OBJECT_DIR,
             training_pipeline.PREPROCESSING_OBJECT_FILE_NAME,)
-
+       
 
 class ModelTrainerConfig:
     def __init__(self,training_pipeline_config:TrainingPipelineConfig):
@@ -148,4 +148,14 @@ class ModelTrainerConfig:
         self.expected_accuracy: float = training_pipeline.MODEL_TRAINER_EXPECTED_SCORE
         self.overfitting_underfitting_threshold = training_pipeline.MODEL_TRAINER_OVER_FITTING_UNDER_FITTING_THRESHOLD
         self.cv_std_warning = training_pipeline.MODEL_TRAINER_CV_STD_WARNING
+
+        # --- final_model/ (production)
+        self.final_preprocessor_file_path: str = os.path.join( training_pipeline.FINAL_MODEL_OBJECT_DIR,training_pipeline.PREPROCESSING_OBJECT_FILE_NAME )
+        self.final_model_file_path: str = os.path.join( training_pipeline.FINAL_MODEL_OBJECT_DIR,training_pipeline.MODEL_FILE_NAME )
+        self.final_metrics_file_path: str = os.path.join(training_pipeline.FINAL_MODEL_OBJECT_DIR, training_pipeline.METRICS_FILE_NAME)
+
+        # --- MLflow / DagsHub 
+        self.dagshub_repo_owner: str = training_pipeline.DAGSHUB_REPO_OWNER
+        self.dagshub_repo_name: str = training_pipeline.DAGSHUB_REPO_NAME
+        self.registered_model_name: str = training_pipeline.MLFLOW_REGISTERED_MODEL_NAME
 

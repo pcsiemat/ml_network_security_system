@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Phishing Predictions</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 32px; background: #f6f7f9; color: #1b2230; }
+        h2 { margin: 0 0 16px; }
+
+        /* totals */
+        .cards { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .card { flex: 1; min-width: 150px; background: white; border: 1px solid #dfe3ea; border-radius: 8px; padding: 14px; }
+        .card span { color: #5d6676; font-size: 13px; }
+        .card b { display: block; font-size: 28px; }
+        .card.phish b { color: #c23b3b; }
+        .card.legit b { color: #1f8a4c; }
+
+        /* table */
+        .table-wrap { overflow-x: auto; background: white; border: 1px solid #dfe3ea; border-radius: 8px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: 8px 10px; border-bottom: 1px solid #dfe3ea; text-align: center; white-space: nowrap; }
+        th { background: #eef1f5; font-size: 12px; }
+
+        /* prediction column */
+        .Phishing   { color: #c23b3b; background: #fbe9e9; font-weight: bold; }
+        .Legitimate { color: #1f8a4c; background: #e5f4ec; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>Predicted Data</h2>
+
+    <div class="cards">
+        <div class="card"><span>Websites</span><b>{{ summary.total }}</b></div>
+        <div class="card phish"><span>Phishing</span><b>{{ summary.phishing }}</b></div>
+        <div class="card legit"><span>Legitimate</span><b>{{ summary.legitimate }}</b></div>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <tr>
+                {% for col in columns %}<th>{{ col }}</th>{% endfor %}
+            </tr>
+            {% for row in rows %}
+            <tr>
+                {% for col in columns %}
+                    {% if col == "predicted_column" %}
+                        <td class="{{ row[col] }}">{{ row[col] }}</td>
+                    {% else %}
+                        <td>{{ row[col] }}</td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</body>
+</html>

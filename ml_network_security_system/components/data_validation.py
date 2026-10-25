@@ -24,7 +24,7 @@ from ml_network_security_system.entity.artifact_entity import DataIngestionArtif
 from ml_network_security_system.entity.config_entity import DataValidationConfig
 from ml_network_security_system.exception.exception import AppException
 from ml_network_security_system.logger.log import logging
-from ml_network_security_system.utils.main_utils import read_yaml_file, write_yaml_file
+from ml_network_security_system.utils.main_utils.utils import read_yaml_file, write_yaml_file
 
 
 class DataValidation:

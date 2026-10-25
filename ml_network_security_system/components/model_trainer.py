@@ -12,9 +12,12 @@ STEPS  : 1. load train.npy / test.npy → split X (all columns but last) and y (
               - overfitting  : train f1 - test f1 <= overfitting_underfitting_threshold (else stop)
               - stability    : std of f1 across CV folds <= CV_STD_WARNING        (else warning)
          5. compute precision / recall / f1 on train and test
-            + track in MLflow: winner (params, metrics, registered model)
-              and every candidate (metrics only, nested runs)
-         6. wrap preprocessor + model in NetworkModel and save it as model.pkl
+            + track in MLflow (one run per training):
+              - winner    : params + metrics + model registered under a FIXED name
+              - champion  : alias moves only if the new version is at least as good
+              - candidates: metrics prefixed with the model name + model_report.json
+         6. wrap preprocessor + model in NetworkModel and save it as model.pkl (Artifacts history)
+         7. promote to final_model/ (preprocessor + model + metrics) only if better than production
 OUTPUT : ModelTrainerArtifact
 =====================================================================
 """
@@ -23,8 +26,17 @@ import os
 import sys
 from dataclasses import asdict
 
+import matplotlib
+matplotlib.use("Agg")          # no window, just save the image
+import matplotlib.pyplot as plt
+import pandas as pd
+
+
+import dagshub
 import mlflow
 import skops.io as sio
+from mlflow.exceptions import MlflowException
+from mlflow.tracking import MlflowClient
 from sklearn.ensemble import (
     AdaBoostClassifier,
     GradientBoostingClassifier,
@@ -37,15 +49,17 @@ from ml_network_security_system.entity.artifact_entity import DataTransformation
 from ml_network_security_system.entity.config_entity import ModelTrainerConfig
 from ml_network_security_system.exception.exception import AppException
 from ml_network_security_system.logger.log import logging
-from ml_network_security_system.utils.main_utils import (
+from ml_network_security_system.utils.main_utils.utils import (
     evaluate_models,
     load_numpy_array_data,
     load_object,
+    read_yaml_file,
     save_object,
+    write_yaml_file,
 )
+from ml_network_security_system.utils.main_utils.mlflow_utils import setup_mlflow
 from ml_network_security_system.utils.ml_utils.metric.classification_metric import get_classification_score
 from ml_network_security_system.utils.ml_utils.model.estimator import NetworkModel
-from ml_network_security_system.utils.main_utils.mlflow_utils import setup_mlflow
 
 
 class ModelTrainer:
@@ -55,46 +69,109 @@ class ModelTrainer:
             self.model_trainer_config = model_trainer_config
             self.data_transformation_artifact = data_transformation_artifact
 
-            ## configure MLflow once (local server, env var URI, or offline fallback)
+            ## configure MLflow once (DagsHub)
+            dagshub.init(
+                repo_owner=model_trainer_config.dagshub_repo_owner,
+                repo_name=model_trainer_config.dagshub_repo_name,
+                mlflow=True,
+            )
             setup_mlflow()
 
         except Exception as e:
             raise AppException(e, sys)
 
+    # ------------------------------------------------------------------ MLflow
+    def _update_champion(self, model_name: str, new_version: str, new_f1: float) -> None:
+        """Move the 'champion' alias to the new version only if it is at least as good."""
+        client = MlflowClient()
+        try:
+            champion = client.get_model_version_by_alias(model_name, "champion")
+            champion_f1 = client.get_run(champion.run_id).data.metrics.get("test_f1_score")
+        except MlflowException:
+            champion, champion_f1 = None, None   # no champion yet
+
+        if champion_f1 is None or new_f1 >= champion_f1:
+            client.set_registered_model_alias(model_name, "champion", new_version)
+            logging.info(f"champion -> {model_name} v{new_version} (test f1 {new_f1} vs {champion_f1})")
+        else:
+            logging.info(f"champion stays at v{champion.version}: new test f1 {new_f1} < {champion_f1}")
+
+    def _candidates_figure(self, model_report: dict, best_model_name: str):
+        """Grouped bar chart: cv / train / test f1 of every candidate."""
+        df = pd.DataFrame(model_report).T[["cv_f1_mean", "train_f1", "test_f1"]]
+        ax = df.plot(kind="bar", figsize=(10, 5), ylim=(max(0, df.values.min() - 0.05), 1))
+        ax.set_title(f"Candidates comparison (best: {best_model_name})")
+        ax.set_ylabel("f1")
+        ax.grid(axis="y", alpha=0.3)
+        plt.xticks(rotation=20)
+        plt.tight_layout()
+        return ax.figure
+
+
     def track_mlflow(self, best_model_name, best_model, model_report, train_metric, test_metric):
         """
-        One MLflow run per training:
-        - parent run : winner params + train/test metrics + saved model (registered)
-        - nested runs: metrics of every candidate, for comparison in the UI
+        One MLflow parent run per training, with one nested run per candidate:
+        - parent    : winner params + train/test metrics + model registered under a FIXED name
+                      + model_report.json + candidates_comparison.png
+        - champion  : alias moves only if the new version is at least as good
+        - children  : metrics of every candidate (grouped under the parent in the MLflow UI)
+        Filter parents only with: tags.run_type = "training"
         """
+        registered_name = self.model_trainer_config.registered_model_name
+
         # Types that skops flags as "untrusted" for THIS specific model.
         # Safe to trust them because we just trained this model ourselves.
         trusted_types = sio.get_untrusted_types(data=sio.dumps(best_model))
 
         with mlflow.start_run(run_name=f"training - {best_model_name}"):
             ## winner
-            mlflow.set_tag("best_model", best_model_name)
+            mlflow.set_tag("run_type", "training")
+            mlflow.set_tag("algorithm", best_model_name)
             mlflow.log_params(best_model.get_params())
 
             # train_f1_score, test_f1_score, train_precision_score, ...
             for prefix, metric in (("train", train_metric), ("test", test_metric)):
                 mlflow.log_metrics({f"{prefix}_{k}": v for k, v in asdict(metric).items()})
 
-            mlflow.sklearn.log_model(
+            model_info = mlflow.sklearn.log_model(
                 best_model,
                 name="model",
                 skops_trusted_types=trusted_types,
-                registered_model_name=best_model_name.replace(" ", "_"),
+                registered_model_name=registered_name,
             )
 
-            ## every candidate: metrics only (cv_f1_mean, cv_f1_std, train_f1, test_f1)
+            ## champion alias
+            try:
+                self._update_champion(registered_name, model_info.registered_model_version,
+                                      float(test_metric.f1_score))
+            except Exception as e:
+                logging.warning(f"Could not update champion alias: {e}")
+
+            ## candidates: one nested run each (grouped under the parent in the MLflow UI)
             for name, report in model_report.items():
                 with mlflow.start_run(run_name=name, nested=True):
+                    mlflow.set_tag("run_type", "candidate")
                     mlflow.set_tag("is_best", name == best_model_name)
-                    mlflow.log_metrics(
-                        {k: v for k, v in report.items() if isinstance(v, (int, float))}
-                    )
+                    mlflow.log_metrics({k: v for k, v in report.items() if isinstance(v, (int, float))})
 
+            ## summary in the parent run (shows up in its Artifacts tab, also in DagsHub)
+            mlflow.log_dict(model_report, "model_report.json")
+            fig = self._candidates_figure(model_report, best_model_name)
+            mlflow.log_figure(fig, "candidates_comparison.png")
+            plt.close(fig)
+
+
+    # ---------------------------------------------------------- final_model/
+    def _is_better_than_production(self, new_f1: float) -> bool:
+        """True if there is no production model yet, or the new one is at least as good."""
+        path = self.model_trainer_config.final_metrics_file_path
+        if not os.path.exists(path):
+            return True
+        current_f1 = read_yaml_file(path)["test_f1_score"]
+        logging.info(f"Production test f1: {current_f1} | new test f1: {new_f1}")
+        return new_f1 >= current_f1
+
+    # ---------------------------------------------------------------- training
     def train_model(self, x_train, y_train, x_test, y_test) -> ModelTrainerArtifact:
         try:
             models = {
@@ -171,13 +248,27 @@ class ModelTrainer:
                 classification_train_metric, classification_test_metric,
             )
 
-            ## 6. wrap preprocessor + model and save (used by the app, independent of MLflow)
+            ## 6. wrap preprocessor + model and save (Artifacts history)
             preprocessor = load_object(file_path=self.data_transformation_artifact.transformed_object_file_path)
 
             os.makedirs(os.path.dirname(cfg.trained_model_file_path), exist_ok=True)
 
             network_model = NetworkModel(preprocessor=preprocessor, model=best_model)
             save_object(cfg.trained_model_file_path, obj=network_model)
+
+            ## 7. promote to production (final_model/) only if better than the current one
+            new_f1 = float(classification_test_metric.f1_score)
+            if self._is_better_than_production(new_f1):
+                save_object(cfg.final_preprocessor_file_path, preprocessor)
+                save_object(cfg.final_model_file_path, best_model)
+                write_yaml_file(cfg.final_metrics_file_path, {
+                    "algorithm": best_model_name,
+                    "test_f1_score": new_f1,
+                    "trained_model_file_path": cfg.trained_model_file_path,
+                }, replace=True)
+                logging.info(f"New model promoted to production: {best_model_name} (test f1 {new_f1})")
+            else:
+                logging.info("New model is worse than production. final_model/ kept unchanged")
 
             ## Model Trainer Artifact
             model_trainer_artifact = ModelTrainerArtifact(

@@ -33,7 +33,7 @@ from ml_network_security_system.entity.artifact_entity import (
 from ml_network_security_system.entity.config_entity import DataTransformationConfig
 from ml_network_security_system.exception.exception import AppException 
 from ml_network_security_system.logger.log import logging
-from ml_network_security_system.utils.main_utils import save_numpy_array_data,save_object
+from ml_network_security_system.utils.main_utils.utils import save_numpy_array_data,save_object
 
 # phishing = 1 (the class we want to detect), legitimate = 0
 TARGET_MAPPING = {-1: 1, 1: 0}
@@ -121,7 +121,7 @@ class DataTransformation:
             save_object(self.data_transformation_config.transformed_object_file_path, preprocessor_object)
  
             # latest copy for predictions (overwritten on every run)
-            save_object("final_model/preprocessor.pkl", preprocessor_object)
+            # save_object(self.data_transformation_config.transformed_final_model_dir, preprocessor_object)
  
             ## prepare artifact
             data_transformation_artifact = DataTransformationArtifact(
