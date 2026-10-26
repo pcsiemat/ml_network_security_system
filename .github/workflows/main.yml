@@ -76,7 +76,9 @@ jobs:
             echo "Nothing to delete"
           fi
 
+
   Continuous-Deployment:
+    name: Continuous Deployment
     needs: build-and-push-ecr-image
     runs-on: self-hosted
     steps:
@@ -103,9 +105,16 @@ jobs:
           docker rm -f networksecurity || true
 
       - name: Run Docker image to serve users
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+          TRAINING_BUCKET_NAME: ${{ vars.TRAINING_BUCKET_NAME }}
+          MONGO_DB_URL: ${{ secrets.MONGO_DB_URL }}
+          IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
         run: |
-          docker run -d --name networksecurity --restart unless-stopped \
-            -p 8080:8000 \
-            -e AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}' \
-            -e AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}' \
-            -e
+          docker run -d --name networksecurity --restart unless-stopped -p 8080:8000 -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -e TRAINING_BUCKET_NAME -e MONGO_DB_URL "$IMAGE"
+
+      - name: Clean old images
+        run: |
+          docker image prune -f
