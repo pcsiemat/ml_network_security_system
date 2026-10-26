@@ -61,4 +61,17 @@ jobs:
           # full image name, available to later steps (e.g. deploy)
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+      - name: Delete old images (keep latest + previous)
+        env:
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
+        run: |
+          OLD_IMAGES=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+            --query 'sort_by(imageDetails,&imagePushedAt)[:-2].imageDigest' --output json)
 
+          if [ "$OLD_IMAGES" != "[]" ]; then
+            echo "Deleting: $OLD_IMAGES"
+            aws ecr batch-delete-image --repository-name "$ECR_REPOSITORY" \
+              --image-ids $(echo "$OLD_IMAGES" | jq -r '.[] | "imageDigest=\(.)"')
+          else
+            echo "Nothing to delete"
+          fi
