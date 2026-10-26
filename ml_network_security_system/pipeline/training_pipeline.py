@@ -79,11 +79,8 @@ class TrainingPipeline:
                 data_transformation_artifact=data_transformation_artifact,
                 model_trainer_config=self.model_trainer_config,
             )
-
             model_trainer_artifact = model_trainer.initiate_model_trainer()
-
             return model_trainer_artifact
-
         except Exception as e:
             raise AppException(e, sys)
 
@@ -100,8 +97,6 @@ class TrainingPipeline:
             self.s3_sync.sync_folder_to_s3(folder = TRAINING_SUB_FOLDER_FINAL_MODEL_NAME,aws_bucket_url=aws_bucket_url)
         except Exception as e:
             raise AppException(e,sys)  
-
-
 
     def run_pipeline(self):
         try:

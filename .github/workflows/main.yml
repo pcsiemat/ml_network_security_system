@@ -13,10 +13,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v5
-
       - name: Lint code
         run: echo "Linting repository"
-
       - name: Run unit tests
         run: echo "Running unit tests"
 
@@ -32,12 +30,35 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq unzip
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
+        run: |
+          # version tag = short commit id (same 7 characters GitHub shows in Commits)
+          IMAGE_TAG=${GITHUB_SHA::7}
+
+          # one image, two tags: the version and latest
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+                       -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          # full image name, available to later steps (e.g. deploy)
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+

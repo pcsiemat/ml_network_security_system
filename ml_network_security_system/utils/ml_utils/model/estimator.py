@@ -1,4 +1,4 @@
-from ml_network_security_system.constant.training_pipeline import SAVED_MODEL_DIR,MODEL_FILE_NAME
+from ml_network_security_system.constant.training_pipeline import MODEL_FILE_NAME
 
 import os
 import sys
