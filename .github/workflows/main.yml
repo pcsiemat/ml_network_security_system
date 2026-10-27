@@ -111,10 +111,10 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
           TRAINING_BUCKET_NAME: ${{ vars.TRAINING_BUCKET_NAME }}
           MONGO_DB_URL: ${{ secrets.MONGO_DB_URL }}
+          DAGSHUB_USER_TOKEN: ${{ secrets.DAGSHUB_USER_TOKEN }}
           IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
         run: |
-          docker run -d --name networksecurity --restart unless-stopped -p 8080:8000 -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -e TRAINING_BUCKET_NAME -e MONGO_DB_URL "$IMAGE"
-
+          docker run -d --name networksecurity --restart unless-stopped -p 8080:8000 -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -e TRAINING_BUCKET_NAME -e MONGO_DB_URL -e DAGSHUB_USER_TOKEN "$IMAGE"
       - name: Clean old images
         run: |
           docker image prune -f

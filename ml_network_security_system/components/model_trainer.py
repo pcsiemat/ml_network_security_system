@@ -69,14 +69,15 @@ class ModelTrainer:
             self.model_trainer_config = model_trainer_config
             self.data_transformation_artifact = data_transformation_artifact
 
-            ## configure MLflow once (DagsHub)
-            dagshub.init(
-                repo_owner=model_trainer_config.dagshub_repo_owner,
-                repo_name=model_trainer_config.dagshub_repo_name,
-                mlflow=True,
-            )
+            try:
+                dagshub.init(
+                    repo_owner=model_trainer_config.dagshub_repo_owner,
+                    repo_name=model_trainer_config.dagshub_repo_name,
+                    mlflow=True,
+                )
+            except Exception as e:
+                logging.warning(f"DagsHub not available ({e}). Falling back to local MLflow / offline.")
             setup_mlflow()
-
         except Exception as e:
             raise AppException(e, sys)
 
