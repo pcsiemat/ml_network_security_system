@@ -4,6 +4,7 @@
 ![uv](https://img.shields.io/badge/uv-package%20manager-DE5FE9)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikitlearn&logoColor=white)
 ![MLflow](https://img.shields.io/badge/MLflow-0194E2?logo=mlflow&logoColor=white)
+[![DagsHub](https://img.shields.io/badge/DagsHub-experiments-6A4CFF)](https://dagshub.com/pcsiemat/ml_network_security_system.mlflow/#/experiments/0)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-S3%20%7C%20ECR%20%7C%20EC2-FF9900?logo=amazonwebservices&logoColor=white)
@@ -11,7 +12,7 @@
 
 A machine learning system that classifies websites as **phishing** or **legitimate**, built and deployed end to end: from raw data in MongoDB to a live API on AWS, updated automatically on every push.
 
-![Architecture](docs/00_architecture/architecture_diagram.png)
+![Architecture](docs/architecture.png)
 
 ## What it does
 
@@ -27,7 +28,19 @@ A machine learning system that classifies websites as **phishing** or **legitima
 - **Quality gates**: training stops if the model underfits or overfits.
 - **Safe promotion**: the production model is replaced only when the new one performs at least as well.
 - **Experiment tracking**: nested MLflow runs, comparison chart and Model Registry with a `champion` alias.
+- **Target re-encoded**: phishing = `1`, legitimate = `0`, so the metrics measure attacks caught.
+- **Managed with uv**: Python 3.12, `pyproject.toml` + `uv.lock` for reproducible installs, also inside Docker.
 - **CI/CD**: every push builds, tags (`commit` + `latest`) and deploys a new image; old images are cleaned up.
+
+## Dataset and target
+
+[UCI Phishing Websites](https://archive.ics.uci.edu/dataset/379/phishing+websites): 11,055 websites, 30 features coded `-1 / 0 / 1`.
+The original target `Result` was re-encoded so that the positive class is the one we want to detect:
+
+| Original `Result` | Meaning | Model target |
+|---|---|---|
+| `-1` | Phishing (4,898) | **`1`** |
+| `1` | Legitimate (6,157) | **`0`** |
 
 ## Key design decisions
 
@@ -50,6 +63,15 @@ A machine learning system that classifies websites as **phishing** or **legitima
 | Test F1 (phishing class) | 0.97 |
 | Dataset | 11,055 websites · 44% phishing / 56% legitimate |
 
+## Experiment tracking
+
+Each training creates a parent run with 5 nested candidate runs (one per algorithm) and registers the best model.
+Runs with source `uvicorn` were trained in the cloud through the API on EC2.
+
+![MLflow runs on DagsHub](docs/experiments.png)
+
+👉 [See all experiments on DagsHub](https://dagshub.com/pcsiemat/ml_network_security_system.mlflow/#/experiments/0)
+
 ## Tech stack
 
 | Area | Tools |
@@ -62,6 +84,8 @@ A machine learning system that classifies websites as **phishing** or **legitima
 | Cloud and DevOps | Docker, GitHub Actions, AWS S3, ECR, EC2 |
 
 ## Run locally
+
+The project uses [uv](https://docs.astral.sh/uv/) instead of pip and `requirements.txt`: `uv sync` creates the virtual environment and installs the exact versions from `uv.lock`.
 
 ```bash
 git clone https://github.com/pcsiemat/ml_network_security_system.git
@@ -83,13 +107,8 @@ ml_network_security_system/   pipeline code: components, config, entities, utils
 app.py                        FastAPI app (/train, /predict)
 main.py                       runs the training pipeline
 Dockerfile                    API image
-docs/                         architecture and setup guides
+docs/images/                  README images
 ```
-
-## Documentation
-
-- [Architecture overview](docs/00_architecture/architecture.md)
-- [Step-by-step setup: AWS, ECR, EC2, CI/CD](docs/STEP_BY_STEP.md)
 
 ## Next steps
 
@@ -99,4 +118,4 @@ docs/                         architecture and setup guides
 
 ## Author
 
-**Your Name** — [LinkedIn](https://www.linkedin.com/in/your-profile) · [GitHub](https://github.com/pcsiemat)
+**Edilberto Matos** — [LinkedIn](https://www.linkedin.com/in/christian-matos-sanchez) · [GitHub](https://github.com/pcsiemat)
