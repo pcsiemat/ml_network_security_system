@@ -1,115 +1,102 @@
-# Network Security: Phishing Detection (End-to-End ML)
+# Phishing Website Detection — End-to-End MLOps
 
-End-to-end machine learning project that detects phishing websites. Data is stored in MongoDB Atlas and processed through a modular training pipeline.
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![uv](https://img.shields.io/badge/uv-package%20manager-DE5FE9)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?logo=scikitlearn&logoColor=white)
+![MLflow](https://img.shields.io/badge/MLflow-0194E2?logo=mlflow&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-S3%20%7C%20ECR%20%7C%20EC2-FF9900?logo=amazonwebservices&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
 
-## Pipeline
+A machine learning system that classifies websites as **phishing** or **legitimate**, built and deployed end to end: from raw data in MongoDB to a live API on AWS, updated automatically on every push.
 
-```text
-MongoDB → Data Ingestion → Data Validation → Data Transformation → Model Trainer → Model Evaluation → Model Pusher
-```
+![Architecture](docs/00_architecture/architecture_diagram.png)
 
-Each stage follows the same pattern: **Config** (input) → **Component** (does the work) → **Artifact** (output for the next stage).
+## What it does
 
-| Stage | What it does | Status |
-|---|---|---|
-| ETL (CSV → MongoDB) | Loads the raw CSV into MongoDB Atlas | ✅ Done |
-| Data Ingestion | Reads MongoDB, saves a raw copy, stratified train/test split | ✅ Done |
-| Data Validation | Checks column count and names against the schema, detects data drift (KS test) | ✅ Done |
-| Data Transformation | Fills missing values (KNNImputer), maps target (phishing = 1, legitimate = 0), saves .npy arrays and the preprocessor | ✅ Done |
-| Model Trainer | | ⏳ Next |
-| Model Evaluation | | ⬜ |
-| Model Pusher | | ⬜ |
+1. **Trains** a classifier on 11,055 websites (30 URL and page features) stored in MongoDB Atlas.
+2. **Tracks** every experiment in MLflow / DagsHub and registers the best model.
+3. **Serves** predictions through a FastAPI app: upload a CSV, get each site labeled as phishing or legitimate.
+4. **Deploys** automatically: GitHub Actions builds a Docker image, pushes it to Amazon ECR and runs it on Amazon EC2.
 
-## Project Structure
+## Highlights
 
-```text
-data_schema/
-└── schema.yaml        # Expected columns and types
-ml_network_security_system/
-├── components/        # Pipeline stages (data_ingestion.py, data_validation.py, ...)
-├── constant/          # Fixed values (folder names, ratio, collection)
-├── entity/            # config_entity.py (inputs), artifact_entity.py (outputs)
-├── exception/         # Custom exception
-├── logger/            # Logging setup
-└── utils/             # Helpers (read/write YAML, ...)
-push_data.py           # Loads the CSV into MongoDB
-main.py                # Runs the pipeline
-```
+- **Modular pipeline**: Data Ingestion → Data Validation (schema + drift test) → Data Transformation → Model Trainer.
+- **Model selection**: 5 classifiers tuned with 5-fold GridSearchCV; best model chosen by cross-validated F1.
+- **Quality gates**: training stops if the model underfits or overfits.
+- **Safe promotion**: the production model is replaced only when the new one performs at least as well.
+- **Experiment tracking**: nested MLflow runs, comparison chart and Model Registry with a `champion` alias.
+- **CI/CD**: every push builds, tags (`commit` + `latest`) and deploys a new image; old images are cleaned up.
 
-Output of each run:
+## Key design decisions
 
-```text
-Artifacts/<timestamp>/
-├── data_ingestion/
-│   ├── feature_store/phisingData.csv
-│   └── ingested/
-│       ├── train.csv
-│       └── test.csv
-├── data_validation/
-│   ├── validated/
-│   │   ├── train.csv
-│   │   └── test.csv
-│   └── drift_report/
-│       └── report.yaml
-└── data_transformation/
-    ├── transformed/
-    │   ├── train.npy
-    │   └── test.npy
-    └── transformed_object/
-        └── preprocessing.pkl
-final_model/
-└── preprocessor.pkl   # latest preprocessor, used for predictions
-```
+| Decision | Why |
+|---|---|
+| Phishing mapped to class `1` | Precision, recall and F1 measure attacks caught |
+| Model chosen by cross-validated F1 on train | The test set stays untouched for the final check |
+| Quality gates (underfitting, overfitting, unstable CV) | A bad model never reaches production |
+| Production model promoted only if as good or better | A worse retrain cannot replace a good model |
+| Parent run + nested candidate runs, Model Registry with `champion` alias | Every candidate is comparable and the production model is traceable |
+| Model downloaded from S3 when the container starts | A new model needs a restart, not a new image |
+| Images tagged with commit + `latest`, old images cleaned up | Easy rollback, low storage cost |
+| uv with lock file, Python 3.12 slim image | Reproducible and fast builds |
 
-## Dataset
+## Results
 
-[UCI Phishing Websites](https://archive.ics.uci.edu/dataset/379/phishing+websites): 11,055 websites, 30 features, target `Result`.
+| Metric | Value |
+|---|---|
+| Best model | Random Forest |
+| Test F1 (phishing class) | 0.97 |
+| Dataset | 11,055 websites · 44% phishing / 56% legitimate |
 
-| `Result` in the CSV | Meaning | In the model |
-|---|---|---|
-| -1 | phishing (4,898) | **1** |
-| 1 | legitimate (6,157) | **0** |
+## Tech stack
 
-Phishing is mapped to 1 so that precision, recall and f1 measure how well the model catches attacks.
+| Area | Tools |
+|---|---|
+| Language | Python 3.12, uv |
+| Data | MongoDB Atlas, pandas, NumPy |
+| Machine learning | scikit-learn, SciPy |
+| Experiment tracking | MLflow, DagsHub |
+| API | FastAPI, Jinja2 |
+| Cloud and DevOps | Docker, GitHub Actions, AWS S3, ECR, EC2 |
 
-The CSV is not in the repo (`*.csv` is in `.gitignore`). Download it and save it as:
-
-```text
-Network_Data/phisingData.csv
-```
-
-## Requirements
-
-- [uv](https://docs.astral.sh/uv/) and Python 3.12
-- A free [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) cluster:
-  1. Create a cluster.
-  2. **Database Access** → create a database user (username + password).
-  3. **Network Access** → add your IP address.
-  4. **Connect → Drivers → Python** → copy the connection string.
-
-## Setup
+## Run locally
 
 ```bash
-git clone https://github.com/<your_user>/ml-end-network-security-system.git
-cd ml-end-network-security-system
+git clone https://github.com/pcsiemat/ml_network_security_system.git
+cd ml_network_security_system
 uv sync
-cp .env.example .env
+cp .env.sample .env              # add your MongoDB connection string
+uv run scripts/push_data.py      # load the dataset (one time)
+uv run main.py                   # train
+uv run app.py                    # open http://localhost:8000/docs
 ```
 
-Open `.env` and paste your connection string:
+Try `POST /predict` with the sample file `valid_data/test_phishing.csv`.
+
+## Project structure
 
 ```text
-MONGO_DB_URL="mongodb+srv://<user>:<password>@<cluster>.<id>.mongodb.net/"
+ml_network_security_system/   pipeline code: components, config, entities, utils
+.github/workflows/main.yml    CI/CD workflow
+app.py                        FastAPI app (/train, /predict)
+main.py                       runs the training pipeline
+Dockerfile                    API image
+docs/                         architecture and setup guides
 ```
 
-Database and collection names are set in `ml_network_security_system/constant/training_pipeline/__init__.py` (`Cmatos_DB` / `Network_Data_Collection`). They are created automatically on the first insert.
+## Documentation
 
-## Run
+- [Architecture overview](docs/00_architecture/architecture.md)
+- [Step-by-step setup: AWS, ECR, EC2, CI/CD](docs/STEP_BY_STEP.md)
 
-```bash
-uv run test_mongodb.py   # optional: check the connection
-uv run push_data.py      # one time: load the CSV into MongoDB
-uv run main.py           # run the pipeline
-```
+## Next steps
 
-Each run creates a new `Artifacts/<timestamp>/` folder and overwrites `final_model/preprocessor.pkl`.
+- Model evaluation stage comparing champion and challenger on the same test set.
+- Unit tests and linting in the CI job.
+- IAM roles and AWS Secrets Manager instead of access keys.
+
+## Author
+
+**Your Name** — [LinkedIn](https://www.linkedin.com/in/your-profile) · [GitHub](https://github.com/pcsiemat)
